@@ -50,6 +50,9 @@ void appendCarrierTone(FILE *uef, uint16_t length)
 
 void appendGap(FILE *uef, uint16_t length)
 {
+	// Buyer beware: Atomulator has a serious bug whereby the presence of a 0112 chunk causes
+	// it to hang upon opening the UEF. I'm going to report it; in the meantime you might consider
+	// commenting out the line below.
 	append16BitChunk(uef, 0x0112, length);
 }
 
@@ -81,8 +84,9 @@ uint8_t *write8(uint8_t *pointer, uint8_t *checksum, uint8_t value)
 
 uint8_t *write16(uint8_t *pointer, uint8_t *checksum, uint16_t value)
 {
-	pointer = write8(pointer, checksum, value & 0xff);
-	return write8(pointer, checksum, value >> 8);
+	// this is not a mistake; the Atom puts 16-bit values on tape in big-endian order
+	pointer = write8(pointer, checksum, value >> 8);
+	return write8(pointer, checksum, value & 0xff);
 }
 
 #pragma mark - main
@@ -211,7 +215,10 @@ int main(int argc, const char * argv[])
 				headerPointer = write8(headerPointer, &checkSum, nextLength-1);
 				headerPointer = write16(headerPointer, &checkSum, executeAddress);
 				headerPointer = write16(headerPointer, &checkSum, loadAddress);
-				loadAddress += nextLength;	// update the load address for next time around
+
+				// update the block number and load address for next time around
+				blockNumber++;
+				loadAddress += nextLength;
 
 				// put that all on tape
 				appendData(uefFile, header, headerPointer - header);
